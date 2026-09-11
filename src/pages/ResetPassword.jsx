@@ -22,19 +22,62 @@ function ResetPassword() {
   useEffect(() => {
     let mounted = true;
 
-    async function checkRecoverySession() {
-      const { data } = await supabase.auth.getSession();
+    async function prepareRecoverySession() {
+      const hash = window.location.hash;
+
+      // Supabase password recovery links can contain
+      // access_token and refresh_token in the URL hash.
+      if (hash.includes("access_token=")) {
+        const params = new URLSearchParams(hash.substring(1));
+
+        const accessToken = params.get("access_token");
+        const refreshToken = params.get("refresh_token");
+        const type = params.get("type");
+
+        if (accessToken && refreshToken && type === "recovery") {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (error) {
+            if (mounted) {
+              setError(error.message);
+              setCheckingSession(false);
+            }
+            return;
+          }
+
+          // Remove the sensitive tokens from the browser URL.
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname
+          );
+
+          if (mounted) {
+            setRecoveryReady(true);
+            setCheckingSession(false);
+          }
+
+          return;
+        }
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!mounted) return;
 
-      if (data.session) {
+      if (session) {
         setRecoveryReady(true);
       }
 
       setCheckingSession(false);
     }
 
-    checkRecoverySession();
+    prepareRecoverySession();
 
     const {
       data: { subscription },
@@ -84,10 +127,14 @@ function ResetPassword() {
       return;
     }
 
-    setMessage("Password updated successfully! Redirecting to login...");
+    setMessage(
+      "Password updated successfully! Redirecting to login..."
+    );
 
     setPassword("");
     setConfirmPassword("");
+
+    await supabase.auth.signOut();
 
     setTimeout(() => {
       navigate("/login");
@@ -170,7 +217,9 @@ function ResetPassword() {
                   <button
                     type="button"
                     className="password-toggle"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() =>
+                      setShowPassword(!showPassword)
+                    }
                   >
                     {showPassword ? "Hide" : "Show"}
                   </button>
@@ -185,7 +234,9 @@ function ResetPassword() {
                 <div className="reset-password-wrapper">
                   <input
                     id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
+                    type={
+                      showConfirmPassword ? "text" : "password"
+                    }
                     placeholder="Re-enter new password"
                     value={confirmPassword}
                     onChange={(e) =>
@@ -198,7 +249,9 @@ function ResetPassword() {
                     type="button"
                     className="password-toggle"
                     onClick={() =>
-                      setShowConfirmPassword(!showConfirmPassword)
+                      setShowConfirmPassword(
+                        !showConfirmPassword
+                      )
                     }
                   >
                     {showConfirmPassword ? "Hide" : "Show"}

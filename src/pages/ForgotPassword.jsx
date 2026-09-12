@@ -16,9 +16,13 @@ function ForgotPassword() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      {
+        redirectTo:
+          "https://fit-track-aash-if0enizvm-surya100205s-projects.vercel.app/reset-password",
+      }
+    );
 
     if (error) {
       setError(error.message);
